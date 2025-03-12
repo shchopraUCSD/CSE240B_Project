@@ -38,6 +38,15 @@ extern const char *bpName[];
 #define WT 2 // predict T, weak taken
 #define ST 3 // predict T, strong taken
 
+// Definitions for 2-bit usefulness counters
+#define SNU 0 // strong not useful 
+#define WNU 1 // weak not useful
+#define WU 2 // weak useful
+#define SU 3 // strong useful
+
+//set 256K as the number of branches after which the u values must be reset
+#define TAGE_RESET_PERIOD 262114
+
 //------------------------------------//
 //      Predictor Configuration       //
 //------------------------------------//
