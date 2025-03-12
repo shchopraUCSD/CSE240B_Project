@@ -7,6 +7,7 @@
 //========================================================//
 #include <stdio.h>
 #include <math.h>
+#include <algorithm>
 #include "predictor.h"
 
 //
@@ -42,23 +43,23 @@ uint32_t L4 = 256;
 
 //the _pred are the 3-bit counter predictor tables
 //the _u are 2-bit counter usefulness tables
-uint32_t * T0_pred;
+uint8_t * T0_pred;
 
-uint32_t * T1_pred;
-uint32_t * T1_u;
-uint32_t * T1_valid;
+uint8_t * T1_pred;
+uint8_t * T1_u;
+uint8_t * T1_valid;
 
-uint32_t * T2_pred;
-uint32_t * T2_u;
-uint32_t * T2_valid;
+uint8_t * T2_pred;
+uint8_t * T2_u;
+uint8_t * T2_valid;
 
-uint32_t * T3_pred;
-uint32_t * T3_u;
-uint32_t * T3_valid;
+uint8_t * T3_pred;
+uint8_t * T3_u;
+uint8_t * T3_valid;
 
-uint32_t * T4_pred;
-uint32_t * T4_u;
-uint32_t * T4_valid;
+uint8_t * T4_pred;
+uint8_t * T4_u;
+uint8_t * T4_valid;
 
 //global counter for how many branches have been predicted so far
 //will be used in resetting the u values
@@ -105,67 +106,67 @@ void init_tage()
   
   //T0
   int T0_entries = 1 << L0;  
-  T0_pred = (uint32_t*)malloc(T0_entries * sizeof(uint8_t));
+  T0_pred = (uint8_t*)malloc(T0_entries * sizeof(uint8_t));
   for(i=0; i<T0_entries; i++){
     T0_pred[i] = WN; //T0 is a 2-bit counter
   }  
   
   //T1
   int T1_entries = 1 << L1;  
-  T1_pred = (uint32_t*)malloc(T1_entries * sizeof(uint8_t));
+  T1_pred = (uint8_t*)malloc(T1_entries * sizeof(uint8_t));
   for(i=0; i<T1_entries; i++){
     T1_pred[i] = 0; //initialize to the 3-bit equivalent of "weakly not taken" which will switch most easily to taken 
   }  
-  T1_u = (uint32_t*)malloc(T1_entries * sizeof(uint8_t));
+  T1_u = (uint8_t*)malloc(T1_entries * sizeof(uint8_t));
   for(i=0; i<T1_entries; i++){
     T1_u[i] = SNU; //initialize to strongly not useful as per TAGE paper
   }  
-  T1_valid = (uint32_t*)malloc(T1_entries * sizeof(uint8_t));
+  T1_valid = (uint8_t*)malloc(T1_entries * sizeof(uint8_t));
   for(i=0; i<T1_entries; i++){
     T1_valid[i] = 0; //initialize to invalid
   }  
 
   //T2
   int T2_entries = 1 << L2;  
-  T2_pred = (uint32_t*)malloc(T2_entries * sizeof(uint8_t));
+  T2_pred = (uint8_t*)malloc(T2_entries * sizeof(uint8_t));
   for(i=0; i<T2_entries; i++){
     T2_pred[i] = 0; //initialize to the 3-bit equivalent of "weakly not taken" which will switch most easily to taken 
   }  
-  T2_u = (uint32_t*)malloc(T2_entries * sizeof(uint8_t));
+  T2_u = (uint8_t*)malloc(T2_entries * sizeof(uint8_t));
   for(i=0; i<T2_entries; i++){
     T2_u[i] = SNU; //initialize to strongly not useful as per TAGE paper
   }  
-  T2_valid = (uint32_t*)malloc(T2_entries * sizeof(uint8_t));
+  T2_valid = (uint8_t*)malloc(T2_entries * sizeof(uint8_t));
   for(i=0; i<T2_entries; i++){
     T2_valid[i] = 0; //initialize to invalid
   }  
  
   //T3 
   int T3_entries = 1 << L3;  
-  T3_pred = (uint32_t*)malloc(T3_entries * sizeof(uint8_t));
+  T3_pred = (uint8_t*)malloc(T3_entries * sizeof(uint8_t));
   for(i=0; i<T3_entries; i++){
     T3_pred[i] = 0; //initialize to the 3-bit equivalent of "weakly not taken" which will switch most easily to taken 
   }  
-  T3_u = (uint32_t*)malloc(T3_entries * sizeof(uint8_t));
+  T3_u = (uint8_t*)malloc(T3_entries * sizeof(uint8_t));
   for(i=0; i<T3_entries; i++){
     T3_u[i] = SNU; //initialize to strongly not useful as per TAGE paper
   }  
-  T3_valid = (uint32_t*)malloc(T3_entries * sizeof(uint8_t));
+  T3_valid = (uint8_t*)malloc(T3_entries * sizeof(uint8_t));
   for(i=0; i<T3_entries; i++){
     T3_valid[i] = 0; //initialize to invalid
   }  
 
   //T4
   int T4_entries = 1 << L4;  
-  T4_pred = (uint32_t*)malloc(T4_entries * sizeof(uint8_t));
+  T4_pred = (uint8_t*)malloc(T4_entries * sizeof(uint8_t));
   for(i=0; i<T4_entries; i++){
     T4_pred[i] = 0; //initialize to the 3-bit equivalent of "weakly not taken" which will switch most easily to taken 
   }  
-  T4_u = (uint32_t*)malloc(T4_entries * sizeof(uint8_t));
+  T4_u = (uint8_t*)malloc(T4_entries * sizeof(uint8_t));
   for(i=0; i<T4_entries; i++){
     T4_u[i] = SNU; //initialize to strongly not useful as per TAGE paper
   }  
-  T4_valid = (uint32_t*)malloc(T4_entries * sizeof(uint8_t));
+  T4_valid = (uint8_t*)malloc(T4_entries * sizeof(uint8_t));
   for(i=0; i<T4_entries; i++){
     T4_valid[i] = 0; //initialize to invalid
   }  
@@ -194,7 +195,7 @@ uint8_t gshare_predict(uint32_t pc)
   }
 }
 
-void tage_walk(uint32_t pc, uint32_t& T0_idx, uint32_t& T1_idx,uint32_t& T2_idx,uint32_t& T3_idx,uint32_t& T4_idx, uint8_t& pred, uint8_t& provider, uint8_t& altpred)
+void tage_walk(uint32_t pc, uint8_t& T0_idx, uint8_t& T1_idx,uint8_t& T2_idx,uint8_t& T3_idx,uint8_t& T4_idx, uint8_t& pred, uint8_t& provider, uint8_t& altpred)
 {
   //first calculated the indexes for each of the tables
   //note that for all tables except T0, the hash function is XOR
@@ -228,6 +229,7 @@ void tage_walk(uint32_t pc, uint32_t& T0_idx, uint32_t& T1_idx,uint32_t& T2_idx,
   default:
     printf("Warning: Undefined state of entry in table T0 !\n");
     default_pred = NOTTAKEN;
+    break;
   }
 
   //predictions from T1-T4
@@ -302,11 +304,11 @@ void tage_walk(uint32_t pc, uint32_t& T0_idx, uint32_t& T1_idx,uint32_t& T2_idx,
 
 uint8_t tage_predict(uint32_t pc)
 {
-  uint32_t T0_idx;
-  uint32_t T1_idx;
-  uint32_t T2_idx;
-  uint32_t T3_idx;
-  uint32_t T4_idx;
+  uint8_t T0_idx;
+  uint8_t T1_idx;
+  uint8_t T2_idx;
+  uint8_t T3_idx;
+  uint8_t T4_idx;
 
   //default prediction from T0
   uint8_t default_pred; 
@@ -355,8 +357,123 @@ void train_gshare(uint32_t pc, uint8_t outcome)
   ghistory = ((ghistory << 1) | outcome);
 }
 
+
+void update_usefulness(int pred_correct ,uint8_t & u )
+{
+  //if the prediction was correct, the usefulness counter is incremented. Else, it is decremented
+  if(pred_correct)
+  {
+    switch(u)
+    {
+      case SNU:
+        u = WNU;
+      case WNU:
+        u = WU;
+      case WU:
+        u = SU;
+      case SU:
+        //NOP
+      default:
+        printf("Warning: undefined state of usefulness entry");
+        break;
+    }
+  }
+  else
+  {
+    switch(u)
+    {
+      case SNU:
+        //NOP
+      case WNU:
+        u = SNU;
+      case WU:
+        u = WNU;
+      case SU:
+        u = WU; 
+      default:
+        printf("Warning: undefined state of usefulness entry");
+        break;
+    }
+  }
+}
+
 void train_tage(uint32_t pc, uint8_t outcome)
 {
+  uint8_t T0_idx;
+  uint8_t T1_idx;
+  uint8_t T2_idx;
+  uint8_t T3_idx;
+  uint8_t T4_idx;
+
+  //default prediction from T0
+  uint8_t default_pred; 
+  //final prediction
+  uint8_t pred;
+  //who is the provider
+  uint8_t provider; 
+  //altpred
+  uint8_t altpred;
+
+  tage_walk(pc, T0_idx, T1_idx, T2_idx, T3_idx, T4_idx, pred, provider, altpred);
+
+  //update usefulness
+  int pred_correct = (pred == outcome) ? 1 : 0;
+  switch(provider)
+  {
+    case 0:
+      //NOP
+    case 1:
+      update_usefulness(pred_correct, T1_u[T1_idx]);
+    case 2:
+      update_usefulness(pred_correct, T2_u[T2_idx]);
+    case 3:
+      update_usefulness(pred_correct, T3_u[T3_idx]);
+    case 4:
+      update_usefulness(pred_correct, T3_u[T3_idx]);
+  default:
+    printf("Warning: Undefined state of provider in TAGE !\n");
+    break;
+  }
+ 
+  //update prediction counter on correct prediction
+  if(pred_correct)
+  {
+  	switch(provider)
+  	{
+  	  case 0:
+  	    {
+  	      switch(T0_pred[T0_idx])
+  	      {
+		  //these updates are in the case when the prediction matched the outcome
+  	  	  case WN:
+  	  		T0_pred[T0_idx] = SN;
+  	  	  case SN:
+  	  		//NOP
+  	  	  case WT:
+  	  		T0_pred[T0_idx] = ST;
+  	        case ST:
+  	  		//NOP
+  	        default:
+  	          printf("Warning: undefined state of entry in table T0 during training");
+  	      }
+  	    }
+  	  case 1:
+  	    T1_pred[T1_idx] = std::max<uint8_t>( (T1_pred[T1_idx]+1) , 3 ); //these are signed 3 bit counters
+  	  case 2:
+  	    T2_pred[T2_idx] = std::max<uint8_t>( (T2_pred[T2_idx]+1) , 3 ); //these are signed 3 bit counters
+  	  case 3:
+  	    T3_pred[T3_idx] = std::max<uint8_t>( (T3_pred[T3_idx]+1) , 3 ); //these are signed 3 bit counters
+  	  case 4:
+  	    T4_pred[T4_idx] = std::max<uint8_t>( (T4_pred[T4_idx]+1) , 3 ); //these are signed 3 bit counters
+  	default:
+  	  printf("Warning: Undefined state of provider in TAGE !\n");
+  	  break; 
+  	}
+  } 
+
+  //updates if overall prediction is incorrect
+  //TODO
+
   // Update history register
   ghistory = ((ghistory << 1) | outcome);
 }
