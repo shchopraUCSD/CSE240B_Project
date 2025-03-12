@@ -194,30 +194,26 @@ uint8_t gshare_predict(uint32_t pc)
   }
 }
 
-uint8_t tage_predict(uint32_t pc)
+void tage_walk(uint32_t pc, uint32_t& T0_idx, uint32_t& T1_idx,uint32_t& T2_idx,uint32_t& T3_idx,uint32_t& T4_idx, uint8_t& pred, uint8_t& provider, uint8_t& altpred)
 {
   //first calculated the indexes for each of the tables
   //note that for all tables except T0, the hash function is XOR
   uint32_t T0_entries = 1 << L0;
-  uint32_t T0_idx = pc & (T0_entries - 1); 
+  T0_idx = pc & (T0_entries - 1); 
   
   uint32_t T1_entries = 1 << L1;
-  uint32_t T1_idx = (pc & (T1_entries - 1)) ^ (ghistory & (T1_entries - 1)); 
+  T1_idx = (pc & (T1_entries - 1)) ^ (ghistory & (T1_entries - 1)); 
 
   uint32_t T2_entries = 1 << L2;
-  uint32_t T2_idx = (pc & (T2_entries - 1)) ^ (ghistory & (T2_entries - 1)); 
+  T2_idx = (pc & (T2_entries - 1)) ^ (ghistory & (T2_entries - 1)); 
 
   uint32_t T3_entries = 1 << L3;
-  uint32_t T3_idx = (pc & (T3_entries - 1)) ^ (ghistory & (T3_entries - 1)); 
+  T3_idx = (pc & (T3_entries - 1)) ^ (ghistory & (T3_entries - 1)); 
 
   uint32_t T4_entries = 1 << L4;
-  uint32_t T4_idx = (pc & (T4_entries - 1)) ^ (ghistory & (T4_entries - 1)); 
-
-  //FIXME implement selection logic across tables
-  //longest match is predicted
+  T4_idx = (pc & (T4_entries - 1)) ^ (ghistory & (T4_entries - 1)); 
 
 
-  //default prediction from T0
   uint8_t default_pred; 
   switch (T0_pred[T0_idx])
   {
@@ -240,8 +236,7 @@ uint8_t tage_predict(uint32_t pc)
   uint8_t t3_pred = T3_valid[T3_idx] ? ( (T3_pred[T3_idx]>0) ? TAKEN : NOTTAKEN ) : INVALID; 
   uint8_t t4_pred = T4_valid[T4_idx] ? ( (T4_pred[T4_idx]>0) ? TAKEN : NOTTAKEN ) : INVALID;  
 
-  uint8_t pred; //actual final prediction to be returned
-  uint8_t provider = 0xBC; 
+  provider = 0xBC; 
   
   //choose the prediction with the longest branch history 
   if(t4_pred != INVALID)
@@ -274,7 +269,7 @@ uint8_t tage_predict(uint32_t pc)
   }
 
   //altpred computation
-  uint8_t altpred = 0;
+  altpred = 0;
   if(provider == 4)
   {
     if(t3_pred != INVALID) 
@@ -303,7 +298,26 @@ uint8_t tage_predict(uint32_t pc)
   }
   else
     altpred = 0;
+}
 
+uint8_t tage_predict(uint32_t pc)
+{
+  uint32_t T0_idx;
+  uint32_t T1_idx;
+  uint32_t T2_idx;
+  uint32_t T3_idx;
+  uint32_t T4_idx;
+
+  //default prediction from T0
+  uint8_t default_pred; 
+  //final prediction
+  uint8_t pred;
+  //who is the provider
+  uint8_t provider; 
+  //altpred
+  uint8_t altpred;
+
+  tage_walk(pc, T0_idx, T1_idx, T2_idx, T3_idx, T4_idx, pred, provider, altpred);
 
   return pred; 
   
@@ -341,9 +355,10 @@ void train_gshare(uint32_t pc, uint8_t outcome)
   ghistory = ((ghistory << 1) | outcome);
 }
 
-void train_tage()
+void train_tage(uint32_t pc, uint8_t outcome)
 {
-  //TODO
+  // Update history register
+  ghistory = ((ghistory << 1) | outcome);
 }
 
 void cleanup_gshare()
