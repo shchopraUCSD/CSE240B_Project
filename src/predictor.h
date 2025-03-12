@@ -38,6 +38,8 @@ extern const char *bpName[];
 #define WT 2 // predict T, weak taken
 #define ST 3 // predict T, strong taken
 
+#define INVALID 0xBC
+
 // Definitions for 2-bit usefulness counters
 #define SNU 0 // strong not useful 
 #define WNU 1 // weak not useful

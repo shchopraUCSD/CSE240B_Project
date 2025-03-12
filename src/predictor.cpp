@@ -214,23 +214,98 @@ uint8_t tage_predict(uint32_t pc)
   uint32_t T4_idx = (pc & (T4_entries - 1)) ^ (ghistory & (T4_entries - 1)); 
 
   //FIXME implement selection logic across tables
+  //longest match is predicted
 
-  uint8_t default_pred = T0_pred[T0_idx];
-  //return default prediction if nothing else was found
-  switch (default_pred)
+
+  //default prediction from T0
+  uint8_t default_pred; 
+  switch (T0_pred[T0_idx])
   {
   case WN:
-    return NOTTAKEN;
+    default_pred = NOTTAKEN;
   case SN:
-    return NOTTAKEN;
+    default_pred = NOTTAKEN;
   case WT:
-    return TAKEN;
+    default_pred = TAKEN;
   case ST:
-    return TAKEN;
+    default_pred = TAKEN;
   default:
-    printf("Warning: Undefined state of entry in GSHARE BHT!\n");
-    return NOTTAKEN;
+    printf("Warning: Undefined state of entry in table T0 !\n");
+    default_pred = NOTTAKEN;
   }
+
+  //predictions from T1-T4
+  uint8_t t1_pred = T1_valid[T1_idx] ? ( (T1_pred[T1_idx]>0) ? TAKEN : NOTTAKEN ) : INVALID; 
+  uint8_t t2_pred = T2_valid[T2_idx] ? ( (T2_pred[T2_idx]>0) ? TAKEN : NOTTAKEN ) : INVALID; 
+  uint8_t t3_pred = T3_valid[T3_idx] ? ( (T3_pred[T3_idx]>0) ? TAKEN : NOTTAKEN ) : INVALID; 
+  uint8_t t4_pred = T4_valid[T4_idx] ? ( (T4_pred[T4_idx]>0) ? TAKEN : NOTTAKEN ) : INVALID;  
+
+  uint8_t pred; //actual final prediction to be returned
+  uint8_t provider = 0xBC; 
+  
+  //choose the prediction with the longest branch history 
+  if(t4_pred != INVALID)
+  {
+    pred = t4_pred; 
+    provider = 4;    
+  }
+  else
+  if(t3_pred != INVALID)
+  {
+    pred = t3_pred;
+    provider = 3;    
+  }
+  else
+  if(t2_pred != INVALID)
+  {
+    pred = t2_pred;
+    provider = 2;    
+  }
+  else
+  if(t1_pred != INVALID)
+  {
+    pred = t1_pred;
+    provider = 1;    
+  }
+  else
+  {
+    pred = default_pred; 
+    provider = 0;    
+  }
+
+  //altpred computation
+  uint8_t altpred = 0;
+  if(provider == 4)
+  {
+    if(t3_pred != INVALID) 
+      altpred = 3;
+    else
+    if(t2_pred != INVALID)
+      altpred = 2;
+    else
+    if(t1_pred != INVALID)
+      altpred = 1;
+  }
+  else
+  if(provider == 3)
+  {
+    if(t2_pred != INVALID)
+      altpred = 2;
+    else
+    if(t1_pred != INVALID)
+      altpred = 1;
+  }
+  else
+  if(provider == 2)
+  {
+    if(t1_pred != INVALID)
+      altpred = 1;
+  }
+  else
+    altpred = 0;
+
+
+  return pred; 
   
 }
 
