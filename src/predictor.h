@@ -49,6 +49,13 @@ extern const char *bpName[];
 //set 256K as the number of branches after which the u values must be reset
 #define TAGE_RESET_PERIOD 262114
 
+//number of entries in each of the tables T1,T2,T3,T4
+//note that in hardware these are effectively fully associative caches
+//however, for our purposes, we have a "reverse mapping" in terms of the
+//_valid tables. which means that the sum of all valids in each table
+//cannot exceed this count
+#define TAGGED_PREDICTOR_SIZE 1024 
+
 //------------------------------------//
 //      Predictor Configuration       //
 //------------------------------------//

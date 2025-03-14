@@ -61,6 +61,7 @@ uint8_t * T4_pred;
 uint8_t * T4_u;
 uint8_t * T4_valid;
 
+
 //global counter for how many branches have been predicted so far
 //will be used in resetting the u values
 uint64_t tage_branch_count; 
@@ -397,6 +398,46 @@ void update_usefulness(int pred_correct ,uint8_t & u )
   }
 }
 
+void periodic_usefulness_reset()
+{
+ 	tage_branch_count++;
+    int even_cycle = 0; //reset MSBs
+	int odd_cycle = 0; //reset LSBs
+    uint8_t usefulness_mask = 0x03;
+    if(tage_branch_count % TAGE_RESET_PERIOD == 0)
+	{
+		if(tage_branch_count % (2*TAGE_RESET_PERIOD)) 
+			{
+			even_cycle = 1;
+			usefulness_mask = 0x01;
+			}
+		else
+			{
+			odd_cycle = 1;
+			usefulness_mask = 0x02;
+			}
+		//iterate over all usefulness values and apply the mask
+		int i;
+
+  		int T1_entries = 1 << L1;  
+  		for(i=0; i<T1_entries; i++){
+  		  T1_u[i] = T1_u[i] & usefulness_mask;
+  		}  
+  		int T2_entries = 1 << L2;  
+  		for(i=0; i<T2_entries; i++){
+  		  T2_u[i] = T2_u[i] & usefulness_mask;
+  		}  
+  		int T3_entries = 1 << L3;  
+  		for(i=0; i<T3_entries; i++){
+  		  T3_u[i] = T3_u[i] & usefulness_mask;
+  		}  
+  		int T4_entries = 1 << L4;  
+  		for(i=0; i<T4_entries; i++){
+  		  T4_u[i] = T4_u[i] & usefulness_mask;
+  		}  
+	} 	
+}
+
 void train_tage(uint32_t pc, uint8_t outcome)
 {
   uint8_t T0_idx;
@@ -506,11 +547,22 @@ void train_tage(uint32_t pc, uint8_t outcome)
   	  printf("Warning: Undefined state of provider in TAGE !\n");
   	  break; 
   	}
-  }
+    //if the provider was NOT the component with the longest history (i.e. T4 in our case),
+    if (provider != 4)
+    {
+    	//allocate a new entry with a longer history
+    	//TODO
+		    	
+		//initialize the newly allocated entry
+		//TODO
 
-  //if the provider was NOT the component with the longest history (i.e. T4 in our case),
-  //allocate a new entry with a longer history
-  //TODO
+    } //end of provider != 4 case
+
+
+  } //end of prediction not correct case
+
+  //periodic alternate reset of usefulness counters
+  periodic_usefulness_reset();
 
   // Update history register
   ghistory = ((ghistory << 1) | outcome);
