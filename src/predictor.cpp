@@ -222,12 +222,16 @@ void tage_walk(uint32_t pc, uint8_t& T0_idx, uint8_t& T1_idx,uint8_t& T2_idx,uin
   {
   case WN:
     default_pred = NOTTAKEN;
+	break;
   case SN:
     default_pred = NOTTAKEN;
+	break;
   case WT:
     default_pred = TAKEN;
+	break;
   case ST:
     default_pred = TAKEN;
+	break;
   default:
     printf("Warning: Undefined state of entry in table T0 !\n");
     default_pred = NOTTAKEN;
@@ -369,12 +373,16 @@ void update_usefulness(int pred_correct ,uint8_t & u )
     {
       case SNU:
         u = WNU;
+		break;
       case WNU:
         u = WU;
+		break;
       case WU:
         u = SU;
+		break;
       case SU:
         //NOP
+		break;
       default:
         printf("Warning: undefined state of usefulness entry");
         break;
@@ -386,12 +394,16 @@ void update_usefulness(int pred_correct ,uint8_t & u )
     {
       case SNU:
         //NOP
+		break;
       case WNU:
         u = SNU;
+		break;
       case WU:
         u = WNU;
+		break;
       case SU:
         u = WU; 
+		break;
       default:
         printf("Warning: undefined state of usefulness entry");
         break;
@@ -470,17 +482,22 @@ void train_tage(uint32_t pc, uint8_t outcome)
   {
     case 0:
       //NOP
+	  break;
     case 1:
       update_usefulness(pred_correct, T1_u[T1_idx]);
+	  break;
     case 2:
       update_usefulness(pred_correct, T2_u[T2_idx]);
+	  break;
     case 3:
       update_usefulness(pred_correct, T3_u[T3_idx]);
+	  break;
     case 4:
       update_usefulness(pred_correct, T3_u[T3_idx]);
-  default:
-    printf("Warning: Undefined state of provider in TAGE !\n");
-    break;
+	  break;
+  	default:
+  	  printf("Warning: Undefined state of provider in TAGE !\n");
+  	  break;
   }
  
   //update prediction counter on correct prediction
@@ -495,27 +512,37 @@ void train_tage(uint32_t pc, uint8_t outcome)
 		  //these updates are in the case when the prediction matched the outcome
   	  	  case WN:
   	  		T0_pred[T0_idx] = SN;
+	  		break;
   	  	  case SN:
   	  		//NOP
+	  		break;
   	  	  case WT:
   	  		T0_pred[T0_idx] = ST;
-  	        case ST:
+	  		break;
+  	      case ST:
   	  		//NOP
-  	        default:
-  	          printf("Warning: undefined state of entry in table T0 during training");
+	  		break;
+  	      default:
+  	        printf("Warning: undefined state of entry in table T0 during training");
+	  		break;
   	      }
+		break;
   	    }
   	  case 1:
   	    update_pred(outcome, T1_pred[T1_idx]); //these are signed 3 bit counters
+	  	break;
   	  case 2:
   	    update_pred(outcome, T2_pred[T2_idx]); //these are signed 3 bit counters
+	  	break;
   	  case 3:
   	    update_pred(outcome, T3_pred[T3_idx]); //these are signed 3 bit counters
+	  	break;
   	  case 4:
   	    update_pred(outcome, T4_pred[T4_idx]); //these are signed 3 bit counters
-  	default:
-  	  printf("Warning: Undefined state of provider in TAGE !\n");
-  	  break; 
+	  	break;
+  	  default:
+  	    printf("Warning: Undefined state of provider in TAGE !\n");
+  	    break; 
   	}
   } 
 
@@ -532,27 +559,37 @@ void train_tage(uint32_t pc, uint8_t outcome)
 		  //these updates are in the case when the prediction did not match the outcome
   	  	  case WN:
   	  		T0_pred[T0_idx] = WT;
+			break;
   	  	  case SN:
   	  		T0_pred[T0_idx] = WN;
+			break;
   	  	  case WT:
   	  		T0_pred[T0_idx] = WN;
-  	        case ST:
-  	  		T0_pred[T0_idx] = WT;
-  	        default:
-  	          printf("Warning: undefined state of entry in table T0 during training");
+			break;
+  	      case ST:
+  	  	    T0_pred[T0_idx] = WT;
+		    break;
+  	      default:
+  	        printf("Warning: undefined state of entry in table T0 during training");
+		    break;
   	      }
+  		break;
   	    }
   	  case 1:
   	    update_pred(outcome, T1_pred[T1_idx]); //these are signed 3 bit counters
+  		break;
   	  case 2:
   	    update_pred(outcome, T2_pred[T2_idx]); //these are signed 3 bit counters
+  		break;
   	  case 3:
   	    update_pred(outcome, T3_pred[T3_idx]); //these are signed 3 bit counters
+  		break;
   	  case 4:
   	    update_pred(outcome, T4_pred[T4_idx]); //these are signed 3 bit counters
-  	default:
-  	  printf("Warning: Undefined state of provider in TAGE !\n");
-  	  break; 
+  		break;
+  	  default:
+  	    printf("Warning: Undefined state of provider in TAGE !\n");
+  	    break; 
   	}
     //if the provider was NOT the component with the longest history (i.e. T4 in our case),
     if (provider != 4)
@@ -618,6 +655,7 @@ void init_predictor()
     init_gshare();
     break;
   case TAGE:
+	init_tage();
     break;
   case CUSTOM:
     break;
@@ -641,7 +679,7 @@ uint32_t make_prediction(uint32_t pc, uint32_t target, uint32_t direct)
   case GSHARE:
     return gshare_predict(pc);
   case TAGE:
-    return NOTTAKEN;
+    return tage_predict(pc);
   case CUSTOM:
     return NOTTAKEN;
   default:
@@ -668,7 +706,7 @@ void train_predictor(uint32_t pc, uint32_t target, uint32_t outcome, uint32_t co
     case GSHARE:
       return train_gshare(pc, outcome);
     case TAGE:
-      return;
+      return train_tage(pc, outcome);
     case CUSTOM:
       return;
     default:
