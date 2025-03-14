@@ -472,6 +472,44 @@ void train_tage(uint32_t pc, uint8_t outcome)
   } 
 
   //updates if overall prediction is incorrect
+  else 
+  {
+    //update the provider ctr 
+  	switch(provider)
+  	{
+  	  case 0:
+  	    {
+  	      switch(T0_pred[T0_idx])
+  	      {
+		  //these updates are in the case when the prediction did not match the outcome
+  	  	  case WN:
+  	  		T0_pred[T0_idx] = WT;
+  	  	  case SN:
+  	  		T0_pred[T0_idx] = WN;
+  	  	  case WT:
+  	  		T0_pred[T0_idx] = WN;
+  	        case ST:
+  	  		T0_pred[T0_idx] = WT;
+  	        default:
+  	          printf("Warning: undefined state of entry in table T0 during training");
+  	      }
+  	    }
+  	  case 1:
+  	    T1_pred[T1_idx] = std::min<uint8_t>( (T1_pred[T1_idx]-1) , -4 ); //these are signed 3 bit counters
+  	  case 2:
+  	    T2_pred[T2_idx] = std::min<uint8_t>( (T2_pred[T2_idx]-1) , -4 ); //these are signed 3 bit counters
+  	  case 3:
+  	    T3_pred[T3_idx] = std::min<uint8_t>( (T3_pred[T3_idx]-1) , -4 ); //these are signed 3 bit counters
+  	  case 4:
+  	    T4_pred[T4_idx] = std::min<uint8_t>( (T4_pred[T4_idx]-1) , -4 ); //these are signed 3 bit counters
+  	default:
+  	  printf("Warning: Undefined state of provider in TAGE !\n");
+  	  break; 
+  	}
+  }
+
+  //if the provider was NOT the component with the longest history (i.e. T4 in our case),
+  //allocate a new entry with a longer history
   //TODO
 
   // Update history register
