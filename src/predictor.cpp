@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <algorithm>
+#include <cstdlib>
 #include "predictor.h"
 
 //
@@ -43,21 +44,21 @@ uint32_t L4 = 256;
 
 //the _pred are the 3-bit counter predictor tables
 //the _u are 2-bit counter usefulness tables
-uint8_t * T0_pred;
+int8_t * T0_pred;
 
-uint8_t * T1_pred;
+int8_t * T1_pred;
 uint8_t * T1_u;
 uint8_t * T1_valid;
 
-uint8_t * T2_pred;
+int8_t * T2_pred;
 uint8_t * T2_u;
 uint8_t * T2_valid;
 
-uint8_t * T3_pred;
+int8_t * T3_pred;
 uint8_t * T3_u;
 uint8_t * T3_valid;
 
-uint8_t * T4_pred;
+int8_t * T4_pred;
 uint8_t * T4_u;
 uint8_t * T4_valid;
 
@@ -107,14 +108,14 @@ void init_tage()
   
   //T0
   int T0_entries = 1 << L0;  
-  T0_pred = (uint8_t*)malloc(T0_entries * sizeof(uint8_t));
+  T0_pred = (int8_t*)malloc(T0_entries * sizeof(int8_t));
   for(i=0; i<T0_entries; i++){
     T0_pred[i] = WN; //T0 is a 2-bit counter
   }  
   
   //T1
   int T1_entries = 1 << L1;  
-  T1_pred = (uint8_t*)malloc(T1_entries * sizeof(uint8_t));
+  T1_pred = (int8_t*)malloc(T1_entries * sizeof(int8_t));
   for(i=0; i<T1_entries; i++){
     T1_pred[i] = 0; //initialize to the 3-bit equivalent of "weakly not taken" which will switch most easily to taken 
   }  
@@ -129,7 +130,7 @@ void init_tage()
 
   //T2
   int T2_entries = 1 << L2;  
-  T2_pred = (uint8_t*)malloc(T2_entries * sizeof(uint8_t));
+  T2_pred = (int8_t*)malloc(T2_entries * sizeof(int8_t));
   for(i=0; i<T2_entries; i++){
     T2_pred[i] = 0; //initialize to the 3-bit equivalent of "weakly not taken" which will switch most easily to taken 
   }  
@@ -144,7 +145,7 @@ void init_tage()
  
   //T3 
   int T3_entries = 1 << L3;  
-  T3_pred = (uint8_t*)malloc(T3_entries * sizeof(uint8_t));
+  T3_pred = (int8_t*)malloc(T3_entries * sizeof(int8_t));
   for(i=0; i<T3_entries; i++){
     T3_pred[i] = 0; //initialize to the 3-bit equivalent of "weakly not taken" which will switch most easily to taken 
   }  
@@ -159,7 +160,7 @@ void init_tage()
 
   //T4
   int T4_entries = 1 << L4;  
-  T4_pred = (uint8_t*)malloc(T4_entries * sizeof(uint8_t));
+  T4_pred = (int8_t*)malloc(T4_entries * sizeof(int8_t));
   for(i=0; i<T4_entries; i++){
     T4_pred[i] = 0; //initialize to the 3-bit equivalent of "weakly not taken" which will switch most easily to taken 
   }  
@@ -438,6 +439,12 @@ void periodic_usefulness_reset()
 	} 	
 }
 
+//function to update the prediction counter of an entry in T1,...,T4
+void update_pred(uint8_t outcome, int8_t & entry )
+{
+	entry = (outcome == TAKEN) ? std::max<int8_t>(entry+1, 3) : std::min<int8_t>(entry-1, -4); 
+}
+
 void train_tage(uint32_t pc, uint8_t outcome)
 {
   uint8_t T0_idx;
@@ -499,13 +506,13 @@ void train_tage(uint32_t pc, uint8_t outcome)
   	      }
   	    }
   	  case 1:
-  	    T1_pred[T1_idx] = std::max<uint8_t>( (T1_pred[T1_idx]+1) , 3 ); //these are signed 3 bit counters
+  	    update_pred(outcome, T1_pred[T1_idx]); //these are signed 3 bit counters
   	  case 2:
-  	    T2_pred[T2_idx] = std::max<uint8_t>( (T2_pred[T2_idx]+1) , 3 ); //these are signed 3 bit counters
+  	    update_pred(outcome, T2_pred[T2_idx]); //these are signed 3 bit counters
   	  case 3:
-  	    T3_pred[T3_idx] = std::max<uint8_t>( (T3_pred[T3_idx]+1) , 3 ); //these are signed 3 bit counters
+  	    update_pred(outcome, T3_pred[T3_idx]); //these are signed 3 bit counters
   	  case 4:
-  	    T4_pred[T4_idx] = std::max<uint8_t>( (T4_pred[T4_idx]+1) , 3 ); //these are signed 3 bit counters
+  	    update_pred(outcome, T4_pred[T4_idx]); //these are signed 3 bit counters
   	default:
   	  printf("Warning: Undefined state of provider in TAGE !\n");
   	  break; 
@@ -536,13 +543,13 @@ void train_tage(uint32_t pc, uint8_t outcome)
   	      }
   	    }
   	  case 1:
-  	    T1_pred[T1_idx] = std::min<uint8_t>( (T1_pred[T1_idx]-1) , -4 ); //these are signed 3 bit counters
+  	    update_pred(outcome, T1_pred[T1_idx]); //these are signed 3 bit counters
   	  case 2:
-  	    T2_pred[T2_idx] = std::min<uint8_t>( (T2_pred[T2_idx]-1) , -4 ); //these are signed 3 bit counters
+  	    update_pred(outcome, T2_pred[T2_idx]); //these are signed 3 bit counters
   	  case 3:
-  	    T3_pred[T3_idx] = std::min<uint8_t>( (T3_pred[T3_idx]-1) , -4 ); //these are signed 3 bit counters
+  	    update_pred(outcome, T3_pred[T3_idx]); //these are signed 3 bit counters
   	  case 4:
-  	    T4_pred[T4_idx] = std::min<uint8_t>( (T4_pred[T4_idx]-1) , -4 ); //these are signed 3 bit counters
+  	    update_pred(outcome, T4_pred[T4_idx]); //these are signed 3 bit counters
   	default:
   	  printf("Warning: Undefined state of provider in TAGE !\n");
   	  break; 
@@ -551,10 +558,38 @@ void train_tage(uint32_t pc, uint8_t outcome)
     if (provider != 4)
     {
     	//allocate a new entry with a longer history
-    	//TODO
-		    	
+		//FIXME with our ideal case of having as big tables T1,...,T4 as we need, 
+		//our Tj and Tk become entries in T4 and T3
+ 
+	    //pick Tj or Tk randomly, with Tj having twice the probability of Tk, j<k
+		int allocation;
+		int random_value = std::rand() % 3;
+		if(random_value<2)
+			allocation = 3;
+		else
+			allocation = 4;
+				
+	
 		//initialize the newly allocated entry
-		//TODO
+		
+		if(allocation == 3)
+		{
+			T3_valid[T3_idx] = 1;
+			T3_u[T3_idx] = SNU;
+			//prediction counter set to weak correct
+			T3_pred[T3_idx] = (outcome == TAKEN) ? 1 : 0;  
+		}
+		else 
+		if(allocation == 4)
+		{
+			T4_valid[T4_idx] = 1;
+			T4_u[T4_idx] = SNU;
+			//prediction counter set to weak correct
+			T4_pred[T4_idx] = (outcome == TAKEN) ? 1 : 0;  
+		}
+		else
+			printf("Warning: something went wrong in choosing randomly between Tj and Tk !\n"); 
+
 
     } //end of provider != 4 case
 

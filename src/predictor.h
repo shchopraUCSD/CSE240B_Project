@@ -54,6 +54,8 @@ extern const char *bpName[];
 //however, for our purposes, we have a "reverse mapping" in terms of the
 //_valid tables. which means that the sum of all valids in each table
 //cannot exceed this count
+//FIXME for now, start with an infinite table size, so that a "valid"
+//entry is always available
 #define TAGGED_PREDICTOR_SIZE 1024 
 
 //------------------------------------//
