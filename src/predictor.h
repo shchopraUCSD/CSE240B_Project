@@ -90,6 +90,7 @@ void train_predictor(uint32_t pc, uint32_t target, uint32_t outcome, uint32_t co
 // Please add your code below, and DO NOT MODIFY ANY OF THE CODE ABOVE
 // 
 
-
+//print out debug variables
+void dbg_prints();
 
 #endif

@@ -151,6 +151,10 @@ int main(int argc, char *argv[])
   printf("Incorrect:       %10d\n", mispredictions);
   float mispredict_rate = 100 * ((float)mispredictions / (float)num_branches);
   printf("Misprediction Rate: %7.3f percent\n", mispredict_rate);
+  
+  //print debug variables
+  if(bpType == TAGE)
+  	dbg_prints();
 
   // Cleanup
   fclose(stream);

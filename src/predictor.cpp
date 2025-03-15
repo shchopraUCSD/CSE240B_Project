@@ -37,10 +37,11 @@ int verbose;
 //tage (5 component) 
 uint32_t L0 = 10; //2^10 entries in table T0 (not part of the geometric series, but defining L0 for convenience)
 //for the geometric series, pick r as 4, to see the effect of long history lengths
-uint32_t L1 = 4;  
-uint32_t L2 = 16;  
-uint32_t L3 = 64;  
-uint32_t L4 = 256;  
+//FIXME try with r as 2
+uint32_t L1 = 2;  
+uint32_t L2 = 4;  
+uint32_t L3 = 8;  
+uint32_t L4 = 16;  
 
 //the _pred are the 3-bit counter predictor tables
 //the _u are 2-bit counter usefulness tables
@@ -67,6 +68,7 @@ uint8_t * T4_valid;
 //will be used in resetting the u values
 uint64_t tage_branch_count; 
 
+
 //
 // TODO: Add your own Branch Predictor data structures here
 //
@@ -74,7 +76,16 @@ uint64_t tage_branch_count;
 uint8_t *bht_gshare;
 uint64_t ghistory;
 
+//debug variables
+int dbg_predict_taken = 0;
+int dbg_prediction_match = 0;
 
+void dbg_prints()
+{
+	printf("\n======= TAGE DEBUG VARIABLES =======\n\n");
+	printf("Number of times TAKEN was predicted             :    %d\n",dbg_predict_taken);	
+	printf("Number of times prediction matched the outcome  :    %d\n",dbg_prediction_match);	
+}
 //------------------------------------//
 //        Predictor Functions         //
 //------------------------------------//
@@ -327,6 +338,9 @@ uint8_t tage_predict(uint32_t pc)
 
   tage_walk(pc, T0_idx, T1_idx, T2_idx, T3_idx, T4_idx, pred, provider, altpred);
 
+  if(pred == TAKEN)
+    dbg_predict_taken++;
+
   return pred; 
   
 }
@@ -503,6 +517,7 @@ void train_tage(uint32_t pc, uint8_t outcome)
   //update prediction counter on correct prediction
   if(pred_correct)
   {
+    dbg_prediction_match++;
   	switch(provider)
   	{
   	  case 0:
