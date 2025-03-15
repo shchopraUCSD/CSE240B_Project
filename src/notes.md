@@ -9,7 +9,7 @@
 ## Observations
 - for r=4 series, TAGE performs horribly - 40-50% misprediction rate
 - for r=2 series, TAGE isn't that bad. Misprediction rate is roughly twice of GSHARE
-- one idea: the TAGE paper mentioned performance on back-2-back traces. Maybe the traces just aren't long enough?
+- one idea: the TAGE paper mentioned performance on back-2-back traces. Maybe the traces just aren't long enough? ans. no, with the concatenated trace, gshare ends up performing better :-( 
 
 ## GSHARE vs TAGE
 ### GSHARE

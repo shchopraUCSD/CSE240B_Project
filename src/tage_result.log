@@ -1,0 +1,8 @@
+Branches:         200000000
+Incorrect:         26497732
+Misprediction Rate:  13.249 percent
+
+======= TAGE DEBUG VARIABLES =======
+
+Number of times TAKEN was predicted             :    138194864
+Number of times prediction matched the outcome  :    173502268
