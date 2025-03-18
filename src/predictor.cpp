@@ -90,7 +90,7 @@ void dbg_prints()
 	printf("Total Number of Predictions                     :    %d\n",dbg_t0_provider+dbg_t1_provider+dbg_t2_provider+dbg_t3_provider+dbg_t4_provider);
 //FIXME: Why is the total count coming out twice the number of branches?
 	printf("Number of times TAKEN was predicted             :    %d\n",dbg_predict_taken);	
-	printf("Number of times TAKEN was predicted             :    %d\n",dbg_predict_nottaken);	
+	printf("Number of times NOT TAKEN was predicted         :    %d\n",dbg_predict_nottaken);	
 	printf("Number of times prediction matched the outcome  :    %d\n",dbg_prediction_match);	
 }
 
@@ -207,7 +207,7 @@ void init_tage()
   int T1_entries = 1 << L1;  
   T1_pred = (int8_t*)malloc(T1_entries * sizeof(int8_t));
   for(i=0; i<T1_entries; i++){
-    T1_pred[i] = WN; //initialize to WN which will switch most easily to taken 
+    T1_pred[i] = -1; //initialize to WN which will switch most easily to taken 
   }  
   T1_u = (uint8_t*)malloc(T1_entries * sizeof(uint8_t));
   for(i=0; i<T1_entries; i++){
@@ -222,7 +222,7 @@ void init_tage()
   int T2_entries = 1 << L2;  
   T2_pred = (int8_t*)malloc(T2_entries * sizeof(int8_t));
   for(i=0; i<T2_entries; i++){
-    T2_pred[i] = WN; //initialize to WN which will switch most easily to taken 
+    T2_pred[i] = -1; //initialize to WN which will switch most easily to taken 
   }  
   T2_u = (uint8_t*)malloc(T2_entries * sizeof(uint8_t));
   for(i=0; i<T2_entries; i++){
@@ -237,7 +237,7 @@ void init_tage()
   int T3_entries = 1 << L3;  
   T3_pred = (int8_t*)malloc(T3_entries * sizeof(int8_t));
   for(i=0; i<T3_entries; i++){
-    T3_pred[i] = WN; //initialize to WN which will switch most easily to taken 
+    T3_pred[i] = -1; //initialize to WN which will switch most easily to taken 
   }  
   T3_u = (uint8_t*)malloc(T3_entries * sizeof(uint8_t));
   for(i=0; i<T3_entries; i++){
@@ -252,7 +252,7 @@ void init_tage()
   int T4_entries = 1 << L4;  
   T4_pred = (int8_t*)malloc(T4_entries * sizeof(int8_t));
   for(i=0; i<T4_entries; i++){
-    T4_pred[i] = WN; //initialize to WN which will switch most easily to taken 
+    T4_pred[i] = -1; //initialize to WN which will switch most easily to taken 
   }  
   T4_u = (uint8_t*)malloc(T4_entries * sizeof(uint8_t));
   for(i=0; i<T4_entries; i++){
@@ -306,10 +306,10 @@ void tage_walk(uint32_t pc, uint8_t& T0_idx, uint8_t& T1_idx,uint8_t& T2_idx,uin
   }
 
   //predictions from T1-T4
-  uint8_t t1_pred = T1_valid[T1_idx] ? ( (T1_pred[T1_idx]>0) ? TAKEN : NOTTAKEN ) : INVALID; 
-  uint8_t t2_pred = T2_valid[T2_idx] ? ( (T2_pred[T2_idx]>0) ? TAKEN : NOTTAKEN ) : INVALID; 
-  uint8_t t3_pred = T3_valid[T3_idx] ? ( (T3_pred[T3_idx]>0) ? TAKEN : NOTTAKEN ) : INVALID; 
-  uint8_t t4_pred = T4_valid[T4_idx] ? ( (T4_pred[T4_idx]>0) ? TAKEN : NOTTAKEN ) : INVALID;  
+  uint8_t t1_pred = T1_valid[T1_idx] ? ( (T1_pred[T1_idx]>=0) ? TAKEN : NOTTAKEN ) : INVALID; 
+  uint8_t t2_pred = T2_valid[T2_idx] ? ( (T2_pred[T2_idx]>=0) ? TAKEN : NOTTAKEN ) : INVALID; 
+  uint8_t t3_pred = T3_valid[T3_idx] ? ( (T3_pred[T3_idx]>=0) ? TAKEN : NOTTAKEN ) : INVALID; 
+  uint8_t t4_pred = T4_valid[T4_idx] ? ( (T4_pred[T4_idx]>=0) ? TAKEN : NOTTAKEN ) : INVALID;  
 
   provider = 0xBC; 
   
@@ -548,6 +548,7 @@ void train_tage(uint32_t pc, uint8_t outcome)
     dbg_prediction_match++;
   	switch(provider)
   	{
+      // T0 has 2-bit predictors
   	  case 0:
   	    {
   	      switch(T0_pred[T0_idx])
@@ -571,6 +572,7 @@ void train_tage(uint32_t pc, uint8_t outcome)
   	      }
 		break;
   	    }
+      // T1, T2, T3, T4 have signed 3 bit counters
   	  case 1:
   	    update_pred(outcome, T1_pred[T1_idx]); //these are signed 3 bit counters
 	  	break;
@@ -595,6 +597,7 @@ void train_tage(uint32_t pc, uint8_t outcome)
     //update the provider ctr 
   	switch(provider)
   	{
+      // T0 has 2-bit predictors
   	  case 0:
   	    {
   	      switch(T0_pred[T0_idx])
@@ -618,6 +621,7 @@ void train_tage(uint32_t pc, uint8_t outcome)
   	      }
   		break;
   	    }
+      // T1, T2, T3, T4 have signed 3 bit counters
   	  case 1:
   	    update_pred(outcome, T1_pred[T1_idx]); //these are signed 3 bit counters
   		break;
@@ -635,7 +639,7 @@ void train_tage(uint32_t pc, uint8_t outcome)
   	    break; 
   	}
     //if the provider was NOT the component with the longest history (i.e. T4 in our case),
-    if (provider != 4)
+    if (provider == 0)
     {
     	//allocate a new entry with a longer history
 		//FIXME with our ideal case of having as big tables T1,...,T4 as we need, 
@@ -643,24 +647,41 @@ void train_tage(uint32_t pc, uint8_t outcome)
  
 	    //pick Tj or Tk randomly, with Tj having twice the probability of Tk, j<k
 		int allocation;
-		int random_value = std::rand() % 3;
-		if(random_value<2)
+		int random_value = std::rand() % 15;
+		if(random_value<8)
+			allocation = 1;
+		else if (8<=random_value & random_value<12)
+			allocation = 2;
+		else if (12<=random_value & random_value<14)
 			allocation = 3;
-		else
+		else if (random_value==14)
 			allocation = 4;
 				
 	
 		//initialize the newly allocated entry
 		
-		if(allocation == 3)
+		if(allocation == 1)
+		{
+			T1_valid[T1_idx] = 1;
+			T1_u[T1_idx] = SNU;
+			//prediction counter set to weak correct
+			T1_pred[T1_idx] = (outcome == TAKEN) ? 1 : 0;  
+		}
+		else if(allocation == 2)
+		{
+			T2_valid[T2_idx] = 1;
+			T2_u[T2_idx] = SNU;
+			//prediction counter set to weak correct
+			T2_pred[T2_idx] = (outcome == TAKEN) ? 1 : 0;  
+		}
+		else if(allocation == 3)
 		{
 			T3_valid[T3_idx] = 1;
 			T3_u[T3_idx] = SNU;
 			//prediction counter set to weak correct
 			T3_pred[T3_idx] = (outcome == TAKEN) ? 1 : 0;  
 		}
-		else 
-		if(allocation == 4)
+		else if(allocation == 4)
 		{
 			T4_valid[T4_idx] = 1;
 			T4_u[T4_idx] = SNU;
@@ -685,7 +706,7 @@ void train_tage(uint32_t pc, uint8_t outcome)
 
 
 //------------------------------------//
-//        Predictor Functions         //
+//        Predictor Execution         //
 //------------------------------------//
 
 
