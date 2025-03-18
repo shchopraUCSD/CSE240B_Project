@@ -75,6 +75,10 @@ int dbg_t1_provider = 0;
 int dbg_t2_provider = 0;
 int dbg_t3_provider = 0;
 int dbg_t4_provider = 0;
+int dbg_t1_allocated = 0;
+int dbg_t2_allocated = 0;
+int dbg_t3_allocated = 0;
+int dbg_t4_allocated = 0;
 int dbg_predict_taken = 0;
 int dbg_predict_nottaken = 0;
 int dbg_prediction_match = 0;
@@ -82,6 +86,10 @@ int dbg_prediction_match = 0;
 void dbg_prints()
 {
 	printf("\n======= TAGE DEBUG VARIABLES =======\n\n");
+	printf("Number of times T1 was allocated                 :    %d\n",dbg_t1_allocated);	
+	printf("Number of times T2 was allocated                 :    %d\n",dbg_t2_allocated);	
+	printf("Number of times T3 was allocated                 :    %d\n",dbg_t3_allocated);	
+	printf("Number of times T4 was allocated                 :    %d\n",dbg_t4_allocated);
 	printf("Number of times T0 was provider                 :    %d\n",dbg_t0_provider);	
 	printf("Number of times T1 was provider                 :    %d\n",dbg_t1_provider);	
 	printf("Number of times T2 was provider                 :    %d\n",dbg_t2_provider);	
@@ -312,6 +320,8 @@ void tage_walk(uint32_t pc, uint8_t& T0_idx, uint8_t& T1_idx,uint8_t& T2_idx,uin
   uint8_t t4_pred = T4_valid[T4_idx] ? ( (T4_pred[T4_idx]>=0) ? TAKEN : NOTTAKEN ) : INVALID;  
 
   provider = 0xBC; 
+
+  int provider_found = 0;
   
   //choose the prediction with the longest branch history 
   if(t4_pred != INVALID)
@@ -319,30 +329,35 @@ void tage_walk(uint32_t pc, uint8_t& T0_idx, uint8_t& T1_idx,uint8_t& T2_idx,uin
     pred = t4_pred; 
     provider = 4; 
 	dbg_t4_provider++;   
+    provider_found = 1;
   }
-  else if(t3_pred != INVALID)
+  else if(!provider_found && t3_pred != INVALID)
   {
     pred = t3_pred;
     provider = 3;    
 	dbg_t3_provider++;   
+    provider_found = 1;
   }
-  else if(t2_pred != INVALID)
+  else if(!provider_found && t2_pred != INVALID)
   {
     pred = t2_pred;
     provider = 2;    
 	dbg_t2_provider++;   
+    provider_found = 1;
   }
-  else if(t1_pred != INVALID)
+  else if(!provider_found && t1_pred != INVALID)
   {
     pred = t1_pred;
     provider = 1;    
 	dbg_t1_provider++;   
+    provider_found = 1;
   }
   else
   {
     pred = default_pred; 
     provider = 0;    
 	dbg_t0_provider++;   
+    provider_found = 1;
   }
 
   //altpred computation
@@ -639,7 +654,7 @@ void train_tage(uint32_t pc, uint8_t outcome)
   	    break; 
   	}
     //if the provider was NOT the component with the longest history (i.e. T4 in our case),
-    if (provider == 0)
+    if (provider != 4)
     {
     	//allocate a new entry with a longer history
 		//FIXME with our ideal case of having as big tables T1,...,T4 as we need, 
@@ -647,6 +662,8 @@ void train_tage(uint32_t pc, uint8_t outcome)
  
 	    //pick Tj or Tk randomly, with Tj having twice the probability of Tk, j<k
 		int allocation;
+		int random_value; 
+		/*
 		int random_value = std::rand() % 15;
 		if(random_value<8)
 			allocation = 1;
@@ -656,6 +673,75 @@ void train_tage(uint32_t pc, uint8_t outcome)
 			allocation = 3;
 		else if (random_value==14)
 			allocation = 4;
+		*/
+		switch(provider)
+		{
+			case 3:
+				{
+					allocation = 4;
+					dbg_t4_allocated++;
+					break;
+				}
+			case 2:
+				{
+					random_value = std::rand() % 3;
+					if(random_value<2)
+						{
+						allocation = 3;
+						dbg_t3_allocated++;
+						}
+					else
+						{
+						allocation = 4;
+						dbg_t4_allocated++;
+						}
+					break;
+				}
+			case 1:
+				{
+					random_value = std::rand() % 7;
+					if(random_value<4)
+						{
+						allocation = 2;
+						dbg_t2_allocated++;
+						}
+					else if(random_value<6)
+						{
+						allocation = 3;
+						dbg_t3_allocated++;
+						}
+					else
+						{
+						allocation = 4;
+						dbg_t4_allocated++;
+						}
+					break;
+				}
+			case 0:
+				{
+					random_value = std::rand() % 15;
+					if(random_value<8)
+						{
+						allocation = 1;
+						dbg_t1_allocated++;
+						}
+					else if (8<=random_value & random_value<12)
+						{
+						allocation = 2;
+						dbg_t2_allocated++;
+						}
+					else if (12<=random_value & random_value<14)
+						{
+						allocation = 3;
+						dbg_t3_allocated++;
+						}
+					else if (random_value==14)
+						{
+						allocation = 4;
+						dbg_t4_allocated++;
+						}
+				}
+		}
 				
 	
 		//initialize the newly allocated entry
@@ -665,28 +751,28 @@ void train_tage(uint32_t pc, uint8_t outcome)
 			T1_valid[T1_idx] = 1;
 			T1_u[T1_idx] = SNU;
 			//prediction counter set to weak correct
-			T1_pred[T1_idx] = (outcome == TAKEN) ? 1 : 0;  
+			T1_pred[T1_idx] = (outcome == TAKEN) ? 0 : -1;  
 		}
 		else if(allocation == 2)
 		{
 			T2_valid[T2_idx] = 1;
 			T2_u[T2_idx] = SNU;
 			//prediction counter set to weak correct
-			T2_pred[T2_idx] = (outcome == TAKEN) ? 1 : 0;  
+			T2_pred[T2_idx] = (outcome == TAKEN) ? 0 : -1;  
 		}
 		else if(allocation == 3)
 		{
 			T3_valid[T3_idx] = 1;
 			T3_u[T3_idx] = SNU;
 			//prediction counter set to weak correct
-			T3_pred[T3_idx] = (outcome == TAKEN) ? 1 : 0;  
+			T3_pred[T3_idx] = (outcome == TAKEN) ? 0 : -1;  
 		}
 		else if(allocation == 4)
 		{
 			T4_valid[T4_idx] = 1;
 			T4_u[T4_idx] = SNU;
 			//prediction counter set to weak correct
-			T4_pred[T4_idx] = (outcome == TAKEN) ? 1 : 0;  
+			T4_pred[T4_idx] = (outcome == TAKEN) ? 0 : -1;  
 		}
 		else
 			printf("Warning: something went wrong in choosing randomly between Tj and Tk !\n"); 
