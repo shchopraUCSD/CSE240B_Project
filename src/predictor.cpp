@@ -11,13 +11,6 @@
 #include <cstdlib>
 #include "predictor.h"
 
-//
-// TODO:Student Information
-//
-const char *studentName = "TODO";
-const char *studentID = "TODO";
-const char *email = "TODO";
-
 //------------------------------------//
 //      Predictor Configuration       //
 //------------------------------------//
@@ -34,6 +27,7 @@ int verbose;
 //------------------------------------//
 //      Predictor Data Structures     //
 //------------------------------------//
+
 //tage (5 component) 
 uint32_t L0 = 10; //2^10 entries in table T0 (not part of the geometric series, but defining L0 for convenience)
 //for the geometric series, pick r as 4, to see the effect of long history lengths
@@ -68,7 +62,6 @@ uint8_t * T4_valid;
 //will be used in resetting the u values
 uint64_t tage_branch_count; 
 
-
 //
 // TODO: Add your own Branch Predictor data structures here
 //
@@ -77,25 +70,43 @@ uint8_t *bht_gshare;
 uint64_t ghistory;
 
 //debug variables
+int dbg_t0_provider = 0;
+int dbg_t1_provider = 0;
+int dbg_t2_provider = 0;
+int dbg_t3_provider = 0;
+int dbg_t4_provider = 0;
 int dbg_predict_taken = 0;
+int dbg_predict_nottaken = 0;
 int dbg_prediction_match = 0;
 
 void dbg_prints()
 {
 	printf("\n======= TAGE DEBUG VARIABLES =======\n\n");
+	printf("Number of times T0 was provider                 :    %d\n",dbg_t0_provider);	
+	printf("Number of times T1 was provider                 :    %d\n",dbg_t1_provider);	
+	printf("Number of times T2 was provider                 :    %d\n",dbg_t2_provider);	
+	printf("Number of times T3 was provider                 :    %d\n",dbg_t3_provider);	
+	printf("Number of times T4 was provider                 :    %d\n",dbg_t4_provider);
+	printf("Total Number of Predictions                     :    %d\n",dbg_t0_provider+dbg_t1_provider+dbg_t2_provider+dbg_t3_provider+dbg_t4_provider);
+//FIXME: Why is the total count coming out twice the number of branches?
 	printf("Number of times TAKEN was predicted             :    %d\n",dbg_predict_taken);	
+	printf("Number of times TAKEN was predicted             :    %d\n",dbg_predict_nottaken);	
 	printf("Number of times prediction matched the outcome  :    %d\n",dbg_prediction_match);	
 }
+
 //------------------------------------//
 //        Predictor Functions         //
 //------------------------------------//
 
 // Initialize the predictor
-//
 
+//##################
 // gshare functions
+//##################
+
 void init_gshare()
 {
+  // allocate memory for 2^ghistoryBits entries in BHT
   int bht_entries = 1 << ghistoryBits;
   bht_gshare = (uint8_t *)malloc(bht_entries * sizeof(uint8_t));
   int i = 0;
@@ -106,92 +117,13 @@ void init_gshare()
   ghistory = 0;
 }
 
-
-void init_tage()
-{
-  ghistory = 0;
-  
-  //counter of how many branches have been predicted so far
-  //will be used in resetting the u values
-  tage_branch_count = 0;
-
-  int i; 
-  
-  //T0
-  int T0_entries = 1 << L0;  
-  T0_pred = (int8_t*)malloc(T0_entries * sizeof(int8_t));
-  for(i=0; i<T0_entries; i++){
-    T0_pred[i] = WN; //T0 is a 2-bit counter
-  }  
-  
-  //T1
-  int T1_entries = 1 << L1;  
-  T1_pred = (int8_t*)malloc(T1_entries * sizeof(int8_t));
-  for(i=0; i<T1_entries; i++){
-    T1_pred[i] = 0; //initialize to the 3-bit equivalent of "weakly not taken" which will switch most easily to taken 
-  }  
-  T1_u = (uint8_t*)malloc(T1_entries * sizeof(uint8_t));
-  for(i=0; i<T1_entries; i++){
-    T1_u[i] = SNU; //initialize to strongly not useful as per TAGE paper
-  }  
-  T1_valid = (uint8_t*)malloc(T1_entries * sizeof(uint8_t));
-  for(i=0; i<T1_entries; i++){
-    T1_valid[i] = 0; //initialize to invalid
-  }  
-
-  //T2
-  int T2_entries = 1 << L2;  
-  T2_pred = (int8_t*)malloc(T2_entries * sizeof(int8_t));
-  for(i=0; i<T2_entries; i++){
-    T2_pred[i] = 0; //initialize to the 3-bit equivalent of "weakly not taken" which will switch most easily to taken 
-  }  
-  T2_u = (uint8_t*)malloc(T2_entries * sizeof(uint8_t));
-  for(i=0; i<T2_entries; i++){
-    T2_u[i] = SNU; //initialize to strongly not useful as per TAGE paper
-  }  
-  T2_valid = (uint8_t*)malloc(T2_entries * sizeof(uint8_t));
-  for(i=0; i<T2_entries; i++){
-    T2_valid[i] = 0; //initialize to invalid
-  }  
- 
-  //T3 
-  int T3_entries = 1 << L3;  
-  T3_pred = (int8_t*)malloc(T3_entries * sizeof(int8_t));
-  for(i=0; i<T3_entries; i++){
-    T3_pred[i] = 0; //initialize to the 3-bit equivalent of "weakly not taken" which will switch most easily to taken 
-  }  
-  T3_u = (uint8_t*)malloc(T3_entries * sizeof(uint8_t));
-  for(i=0; i<T3_entries; i++){
-    T3_u[i] = SNU; //initialize to strongly not useful as per TAGE paper
-  }  
-  T3_valid = (uint8_t*)malloc(T3_entries * sizeof(uint8_t));
-  for(i=0; i<T3_entries; i++){
-    T3_valid[i] = 0; //initialize to invalid
-  }  
-
-  //T4
-  int T4_entries = 1 << L4;  
-  T4_pred = (int8_t*)malloc(T4_entries * sizeof(int8_t));
-  for(i=0; i<T4_entries; i++){
-    T4_pred[i] = 0; //initialize to the 3-bit equivalent of "weakly not taken" which will switch most easily to taken 
-  }  
-  T4_u = (uint8_t*)malloc(T4_entries * sizeof(uint8_t));
-  for(i=0; i<T4_entries; i++){
-    T4_u[i] = SNU; //initialize to strongly not useful as per TAGE paper
-  }  
-  T4_valid = (uint8_t*)malloc(T4_entries * sizeof(uint8_t));
-  for(i=0; i<T4_entries; i++){
-    T4_valid[i] = 0; //initialize to invalid
-  }  
-}
-
 uint8_t gshare_predict(uint32_t pc)
 {
-  // get lower ghistoryBits of pc
+  // XOR the lower ghistoryBits of PC, GHR
   uint32_t bht_entries = 1 << ghistoryBits;
-  uint32_t pc_lower_bits = pc & (bht_entries - 1);
-  uint32_t ghistory_lower_bits = ghistory & (bht_entries - 1);
-  uint32_t index = pc_lower_bits ^ ghistory_lower_bits;
+  uint32_t index =  (pc & (bht_entries - 1)) ^ (ghistory & (bht_entries - 1));
+
+  // Return the prediction based on state
   switch (bht_gshare[index])
   {
   case WN:
@@ -206,6 +138,130 @@ uint8_t gshare_predict(uint32_t pc)
     printf("Warning: Undefined state of entry in GSHARE BHT!\n");
     return NOTTAKEN;
   }
+}
+
+void train_gshare(uint32_t pc, uint8_t outcome)
+{
+  // XOR the lower ghistoryBits of PC, GHR
+  uint32_t bht_entries = 1 << ghistoryBits;
+  uint32_t index =  (pc & (bht_entries - 1)) ^ (ghistory & (bht_entries - 1));
+
+  // Update state of entry in BHT based on outcome
+  switch (bht_gshare[index])
+  {
+  case WN:
+    bht_gshare[index] = (outcome == TAKEN) ? WT : SN;
+    break;
+  case SN:
+    bht_gshare[index] = (outcome == TAKEN) ? WN : SN;
+    break;
+  case WT:
+    bht_gshare[index] = (outcome == TAKEN) ? ST : WN;
+    break;
+  case ST:
+    bht_gshare[index] = (outcome == TAKEN) ? ST : WT;
+    break;
+  default:
+    printf("Warning: Undefined state of entry in GSHARE BHT!\n");
+    break;
+  }
+
+  // Update history register
+  ghistory = ((ghistory << 1) | outcome);
+}
+
+void cleanup_gshare()
+{
+  free(bht_gshare);
+}
+
+
+//################
+// tage functions
+//################
+
+void init_tage()
+{
+  ghistory = 0;
+  
+  //counter of how many branches have been predicted so far
+  //will be used in resetting the u values
+  tage_branch_count = 0;
+
+  int i; 
+
+  //Create tables T0, T1, T2, T3, T4
+  //Each table has columns for 2-bit predictor, 2-bit usefulness counter, valid
+  //FIXME: Is there a reason why T0 does not have the other columns?
+  //FIXME: What do we need valid for?
+  //FIXME: Do we need to malloc here for the tag bits too?
+
+  // allocate memory for 2^L0 entries in T0
+  int T0_entries = 1 << L0;  
+  T0_pred = (int8_t*)malloc(T0_entries * sizeof(int8_t));
+  for(i=0; i<T0_entries; i++){
+    T0_pred[i] = WN; //initialize to WN which will switch most easily to taken
+  }  
+  
+  // allocate memory for 2^L1 entries in T1
+  int T1_entries = 1 << L1;  
+  T1_pred = (int8_t*)malloc(T1_entries * sizeof(int8_t));
+  for(i=0; i<T1_entries; i++){
+    T1_pred[i] = WN; //initialize to WN which will switch most easily to taken 
+  }  
+  T1_u = (uint8_t*)malloc(T1_entries * sizeof(uint8_t));
+  for(i=0; i<T1_entries; i++){
+    T1_u[i] = SNU; //initialize to strongly not useful as per TAGE paper
+  }  
+  T1_valid = (uint8_t*)malloc(T1_entries * sizeof(uint8_t));
+  for(i=0; i<T1_entries; i++){
+    T1_valid[i] = 0x0; //initialize to invalid
+  }  
+
+  // allocate memory for 2^L2 entries in T2
+  int T2_entries = 1 << L2;  
+  T2_pred = (int8_t*)malloc(T2_entries * sizeof(int8_t));
+  for(i=0; i<T2_entries; i++){
+    T2_pred[i] = WN; //initialize to WN which will switch most easily to taken 
+  }  
+  T2_u = (uint8_t*)malloc(T2_entries * sizeof(uint8_t));
+  for(i=0; i<T2_entries; i++){
+    T2_u[i] = SNU; //initialize to strongly not useful as per TAGE paper
+  }  
+  T2_valid = (uint8_t*)malloc(T2_entries * sizeof(uint8_t));
+  for(i=0; i<T2_entries; i++){
+    T2_valid[i] = 0x0; //initialize to invalid
+  }  
+ 
+  // allocate memory for 2^L3 entries in T3
+  int T3_entries = 1 << L3;  
+  T3_pred = (int8_t*)malloc(T3_entries * sizeof(int8_t));
+  for(i=0; i<T3_entries; i++){
+    T3_pred[i] = WN; //initialize to WN which will switch most easily to taken 
+  }  
+  T3_u = (uint8_t*)malloc(T3_entries * sizeof(uint8_t));
+  for(i=0; i<T3_entries; i++){
+    T3_u[i] = SNU; //initialize to strongly not useful as per TAGE paper
+  }  
+  T3_valid = (uint8_t*)malloc(T3_entries * sizeof(uint8_t));
+  for(i=0; i<T3_entries; i++){
+    T3_valid[i] = 0x0; //initialize to invalid
+  }  
+
+  // allocate memory for 2^L4 entries in T4
+  int T4_entries = 1 << L4;  
+  T4_pred = (int8_t*)malloc(T4_entries * sizeof(int8_t));
+  for(i=0; i<T4_entries; i++){
+    T4_pred[i] = WN; //initialize to WN which will switch most easily to taken 
+  }  
+  T4_u = (uint8_t*)malloc(T4_entries * sizeof(uint8_t));
+  for(i=0; i<T4_entries; i++){
+    T4_u[i] = SNU; //initialize to strongly not useful as per TAGE paper
+  }  
+  T4_valid = (uint8_t*)malloc(T4_entries * sizeof(uint8_t));
+  for(i=0; i<T4_entries; i++){
+    T4_valid[i] = 0x0; //initialize to invalid
+  }  
 }
 
 void tage_walk(uint32_t pc, uint8_t& T0_idx, uint8_t& T1_idx,uint8_t& T2_idx,uint8_t& T3_idx,uint8_t& T4_idx, uint8_t& pred, uint8_t& provider, uint8_t& altpred)
@@ -261,30 +317,32 @@ void tage_walk(uint32_t pc, uint8_t& T0_idx, uint8_t& T1_idx,uint8_t& T2_idx,uin
   if(t4_pred != INVALID)
   {
     pred = t4_pred; 
-    provider = 4;    
+    provider = 4; 
+	dbg_t4_provider++;   
   }
-  else
-  if(t3_pred != INVALID)
+  else if(t3_pred != INVALID)
   {
     pred = t3_pred;
     provider = 3;    
+	dbg_t3_provider++;   
   }
-  else
-  if(t2_pred != INVALID)
+  else if(t2_pred != INVALID)
   {
     pred = t2_pred;
     provider = 2;    
+	dbg_t2_provider++;   
   }
-  else
-  if(t1_pred != INVALID)
+  else if(t1_pred != INVALID)
   {
     pred = t1_pred;
     provider = 1;    
+	dbg_t1_provider++;   
   }
   else
   {
     pred = default_pred; 
     provider = 0;    
+	dbg_t0_provider++;   
   }
 
   //altpred computation
@@ -341,42 +399,12 @@ uint8_t tage_predict(uint32_t pc)
   if(pred == TAKEN)
     dbg_predict_taken++;
 
+  if(pred == NOTTAKEN)
+    dbg_predict_nottaken++;
+
   return pred; 
   
 }
-
-void train_gshare(uint32_t pc, uint8_t outcome)
-{
-  // get lower ghistoryBits of pc
-  uint32_t bht_entries = 1 << ghistoryBits;
-  uint32_t pc_lower_bits = pc & (bht_entries - 1);
-  uint32_t ghistory_lower_bits = ghistory & (bht_entries - 1);
-  uint32_t index = pc_lower_bits ^ ghistory_lower_bits;
-
-  // Update state of entry in bht based on outcome
-  switch (bht_gshare[index])
-  {
-  case WN:
-    bht_gshare[index] = (outcome == TAKEN) ? WT : SN;
-    break;
-  case SN:
-    bht_gshare[index] = (outcome == TAKEN) ? WN : SN;
-    break;
-  case WT:
-    bht_gshare[index] = (outcome == TAKEN) ? ST : WN;
-    break;
-  case ST:
-    bht_gshare[index] = (outcome == TAKEN) ? ST : WT;
-    break;
-  default:
-    printf("Warning: Undefined state of entry in GSHARE BHT!\n");
-    break;
-  }
-
-  // Update history register
-  ghistory = ((ghistory << 1) | outcome);
-}
-
 
 void update_usefulness(int pred_correct ,uint8_t & u )
 {
@@ -655,10 +683,11 @@ void train_tage(uint32_t pc, uint8_t outcome)
   ghistory = ((ghistory << 1) | outcome);
 }
 
-void cleanup_gshare()
-{
-  free(bht_gshare);
-}
+
+//------------------------------------//
+//        Predictor Functions         //
+//------------------------------------//
+
 
 void init_predictor()
 {
@@ -682,7 +711,7 @@ void init_predictor()
 // Make a prediction for conditional branch instruction at PC 'pc'
 // Returning TAKEN indicates a prediction of taken; returning NOTTAKEN
 // indicates a prediction of not taken
-//
+
 uint32_t make_prediction(uint32_t pc, uint32_t target, uint32_t direct)
 {
 
@@ -708,7 +737,6 @@ uint32_t make_prediction(uint32_t pc, uint32_t target, uint32_t direct)
 // Train the predictor the last executed branch at PC 'pc' and with
 // outcome 'outcome' (true indicates that the branch was taken, false
 // indicates that the branch was not taken)
-//
 
 void train_predictor(uint32_t pc, uint32_t target, uint32_t outcome, uint32_t condition, uint32_t call, uint32_t ret, uint32_t direct)
 {
