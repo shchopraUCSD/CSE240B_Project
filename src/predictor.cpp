@@ -62,6 +62,20 @@ uint8_t * T4_valid;
 //will be used in resetting the u values
 uint64_t tage_branch_count; 
 
+uint8_t T0_idx;
+uint8_t T1_idx;
+uint8_t T2_idx;
+uint8_t T3_idx;
+uint8_t T4_idx;
+
+//default prediction from T0
+uint8_t default_pred; 
+//final prediction
+uint8_t pred;
+//who is the provider
+uint8_t provider; 
+//altpred
+uint8_t altpred;
 //
 // TODO: Add your own Branch Predictor data structures here
 //
@@ -394,20 +408,6 @@ void tage_walk(uint32_t pc, uint8_t& T0_idx, uint8_t& T1_idx,uint8_t& T2_idx,uin
 
 uint8_t tage_predict(uint32_t pc)
 {
-  uint8_t T0_idx;
-  uint8_t T1_idx;
-  uint8_t T2_idx;
-  uint8_t T3_idx;
-  uint8_t T4_idx;
-
-  //default prediction from T0
-  uint8_t default_pred; 
-  //final prediction
-  uint8_t pred;
-  //who is the provider
-  uint8_t provider; 
-  //altpred
-  uint8_t altpred;
 
   tage_walk(pc, T0_idx, T1_idx, T2_idx, T3_idx, T4_idx, pred, provider, altpred);
 
@@ -516,22 +516,7 @@ void update_pred(uint8_t outcome, int8_t & entry )
 
 void train_tage(uint32_t pc, uint8_t outcome)
 {
-  uint8_t T0_idx;
-  uint8_t T1_idx;
-  uint8_t T2_idx;
-  uint8_t T3_idx;
-  uint8_t T4_idx;
-
-  //default prediction from T0
-  uint8_t default_pred; 
-  //final prediction
-  uint8_t pred;
-  //who is the provider
-  uint8_t provider; 
-  //altpred
-  uint8_t altpred;
-
-  tage_walk(pc, T0_idx, T1_idx, T2_idx, T3_idx, T4_idx, pred, provider, altpred);
+  //tage_walk(pc, T0_idx, T1_idx, T2_idx, T3_idx, T4_idx, pred, provider, altpred);
 
   //update usefulness
   int pred_correct = (pred == outcome) ? 1 : 0;
@@ -684,7 +669,7 @@ void train_tage(uint32_t pc, uint8_t outcome)
 				}
 			case 2:
 				{
-					random_value = std::rand() % 3;
+					random_value = std::rand() % 4;
 					if(random_value<2)
 						{
 						allocation = 3;
@@ -702,8 +687,8 @@ void train_tage(uint32_t pc, uint8_t outcome)
 					random_value = std::rand() % 7;
 					if(random_value<4)
 						{
-						allocation = 2;
-						dbg_t2_allocated++;
+						allocation = 4;
+						dbg_t4_allocated++;
 						}
 					else if(random_value<6)
 						{
@@ -712,8 +697,8 @@ void train_tage(uint32_t pc, uint8_t outcome)
 						}
 					else
 						{
-						allocation = 4;
-						dbg_t4_allocated++;
+						allocation = 1;
+						dbg_t1_allocated++;
 						}
 					break;
 				}
@@ -722,8 +707,8 @@ void train_tage(uint32_t pc, uint8_t outcome)
 					random_value = std::rand() % 15;
 					if(random_value<8)
 						{
-						allocation = 1;
-						dbg_t1_allocated++;
+						allocation = 4;
+						dbg_t4_allocated++;
 						}
 					else if (8<=random_value & random_value<12)
 						{
@@ -737,8 +722,8 @@ void train_tage(uint32_t pc, uint8_t outcome)
 						}
 					else if (random_value==14)
 						{
-						allocation = 4;
-						dbg_t4_allocated++;
+						allocation = 1;
+						dbg_t1_allocated++;
 						}
 				}
 		}
