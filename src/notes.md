@@ -22,6 +22,13 @@
 - used just the lower 2 bits of PC as tag and see if this helps? ans. misprediction further dropped to 9.421%
 - is a 3-bit counter required for T1, T2, T3, T4? what happens if you use da 2-bit counter? and. apparently nothing
 
+## Future Work
+- add the SC and the L features (we can even switch up the report, saying that the paper we are focussing on is TAGE, and we can look at enhancements on top of it)
+- actually use the "usefulness" counters by limiting the size; ideally, should be able to achieve same performance with a smaller size
+- analyze further why the utilization of tables is so low
+- experiment with different hash functions (can maybe do that now also - this seems like a low hanging fruit, just some edits to tage\_walk) 
+- more???
+
 
 ## GSHARE vs TAGE
 ### GSHARE
