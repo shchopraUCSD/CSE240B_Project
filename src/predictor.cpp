@@ -20,15 +20,17 @@ const char *bpName[4] = {"Static", "Gshare",
                          "Tage", "Custom"};
 
 // define number of bits required for indexing the BHT here.
-int ghistoryBits = 17; // Number of bits used for Global History
+int ghistoryBits = 18; // Number of bits used for Global History
 int bpType;            // Branch Prediction Type
 int verbose;
+int tag_size = 2;
+int tag_mask = (1 << tag_size) - 1;
 
 //------------------------------------//
 //      Predictor Data Structures     //
 //------------------------------------//
 
-//tage (5 component) 
+//tage (5 component)
 uint32_t L0 = 10; //2^10 entries in table T0 (not part of the geometric series, but defining L0 for convenience)
 //for the geometric series, pick r as 4, to see the effect of long history lengths
 //FIXME try with r as 2
@@ -37,6 +39,12 @@ uint32_t L2 = 4;
 uint32_t L3 = 8;  
 uint32_t L4 = 16;  
 
+uint32_t T0_entries = 1 << L0;
+uint32_t T1_entries = 1 << L1;
+uint32_t T2_entries = 1 << L2;
+uint32_t T3_entries = 1 << L3;
+uint32_t T4_entries = 1 << L4;
+
 //the _pred are the 3-bit counter predictor tables
 //the _u are 2-bit counter usefulness tables
 int8_t * T0_pred;
@@ -44,18 +52,22 @@ int8_t * T0_pred;
 int8_t * T1_pred;
 uint8_t * T1_u;
 uint8_t * T1_valid;
+uint8_t * T1_tag;
 
 int8_t * T2_pred;
 uint8_t * T2_u;
 uint8_t * T2_valid;
+uint8_t * T2_tag;
 
 int8_t * T3_pred;
 uint8_t * T3_u;
 uint8_t * T3_valid;
+uint8_t * T3_tag;
 
 int8_t * T4_pred;
 uint8_t * T4_u;
 uint8_t * T4_valid;
+uint8_t * T4_tag;
 
 
 //global counter for how many branches have been predicted so far
@@ -213,20 +225,17 @@ void init_tage()
   int i; 
 
   //Create tables T0, T1, T2, T3, T4
-  //Each table has columns for 2-bit predictor, 2-bit usefulness counter, valid
-  //FIXME: Is there a reason why T0 does not have the other columns?
+  //T0 has a single column for 2-bit unsigned predictor
+  //Each of T1, T2, T3, T4 has columns for 3-bit signed predictor, 2-bit usefulness counter, valid
   //FIXME: What do we need valid for?
-  //FIXME: Do we need to malloc here for the tag bits too?
 
   // allocate memory for 2^L0 entries in T0
-  int T0_entries = 1 << L0;  
   T0_pred = (int8_t*)malloc(T0_entries * sizeof(int8_t));
   for(i=0; i<T0_entries; i++){
     T0_pred[i] = WN; //initialize to WN which will switch most easily to taken
   }  
   
   // allocate memory for 2^L1 entries in T1
-  int T1_entries = 1 << L1;  
   T1_pred = (int8_t*)malloc(T1_entries * sizeof(int8_t));
   for(i=0; i<T1_entries; i++){
     T1_pred[i] = -1; //initialize to WN which will switch most easily to taken 
@@ -238,7 +247,11 @@ void init_tage()
   T1_valid = (uint8_t*)malloc(T1_entries * sizeof(uint8_t));
   for(i=0; i<T1_entries; i++){
     T1_valid[i] = 0x0; //initialize to invalid
-  }  
+  }
+  T1_tag = (uint8_t*)malloc(T1_entries * sizeof(uint8_t));
+  for(i=0; i<T1_entries; i++){
+    T1_tag[i] = 0xBC; //initialize to invalid
+  }   
 
   // allocate memory for 2^L2 entries in T2
   int T2_entries = 1 << L2;  
@@ -254,7 +267,11 @@ void init_tage()
   for(i=0; i<T2_entries; i++){
     T2_valid[i] = 0x0; //initialize to invalid
   }  
- 
+  T2_tag = (uint8_t*)malloc(T2_entries * sizeof(uint8_t));
+  for(i=0; i<T2_entries; i++){
+    T2_tag[i] = 0xBC; //initialize to invalid
+  } 
+
   // allocate memory for 2^L3 entries in T3
   int T3_entries = 1 << L3;  
   T3_pred = (int8_t*)malloc(T3_entries * sizeof(int8_t));
@@ -269,7 +286,11 @@ void init_tage()
   for(i=0; i<T3_entries; i++){
     T3_valid[i] = 0x0; //initialize to invalid
   }  
-
+  T3_tag = (uint8_t*)malloc(T3_entries * sizeof(uint8_t));
+  for(i=0; i<T3_entries; i++){
+    T3_tag[i] = 0xBC; //initialize to invalid
+  }
+ 
   // allocate memory for 2^L4 entries in T4
   int T4_entries = 1 << L4;  
   T4_pred = (int8_t*)malloc(T4_entries * sizeof(int8_t));
@@ -283,6 +304,10 @@ void init_tage()
   T4_valid = (uint8_t*)malloc(T4_entries * sizeof(uint8_t));
   for(i=0; i<T4_entries; i++){
     T4_valid[i] = 0x0; //initialize to invalid
+  } 
+  T4_tag = (uint8_t*)malloc(T4_entries * sizeof(uint8_t));
+  for(i=0; i<T4_entries; i++){
+    T4_tag[i] = 0xBC; //initialize to invalid
   }  
 }
 
@@ -290,19 +315,11 @@ void tage_walk(uint32_t pc, uint8_t& T0_idx, uint8_t& T1_idx,uint8_t& T2_idx,uin
 {
   //first calculated the indexes for each of the tables
   //note that for all tables except T0, the hash function is XOR
-  uint32_t T0_entries = 1 << L0;
+
   T0_idx = pc & (T0_entries - 1); 
-  
-  uint32_t T1_entries = 1 << L1;
   T1_idx = (pc & (T1_entries - 1)) ^ (ghistory & (T1_entries - 1)); 
-
-  uint32_t T2_entries = 1 << L2;
   T2_idx = (pc & (T2_entries - 1)) ^ (ghistory & (T2_entries - 1)); 
-
-  uint32_t T3_entries = 1 << L3;
   T3_idx = (pc & (T3_entries - 1)) ^ (ghistory & (T3_entries - 1)); 
-
-  uint32_t T4_entries = 1 << L4;
   T4_idx = (pc & (T4_entries - 1)) ^ (ghistory & (T4_entries - 1)); 
 
 
@@ -327,11 +344,19 @@ void tage_walk(uint32_t pc, uint8_t& T0_idx, uint8_t& T1_idx,uint8_t& T2_idx,uin
     break;
   }
 
-  //predictions from T1-T4
-  uint8_t t1_pred = T1_valid[T1_idx] ? ( (T1_pred[T1_idx]>=0) ? TAKEN : NOTTAKEN ) : INVALID; 
-  uint8_t t2_pred = T2_valid[T2_idx] ? ( (T2_pred[T2_idx]>=0) ? TAKEN : NOTTAKEN ) : INVALID; 
-  uint8_t t3_pred = T3_valid[T3_idx] ? ( (T3_pred[T3_idx]>=0) ? TAKEN : NOTTAKEN ) : INVALID; 
-  uint8_t t4_pred = T4_valid[T4_idx] ? ( (T4_pred[T4_idx]>=0) ? TAKEN : NOTTAKEN ) : INVALID;  
+  //predictions from T1-T4 using 2 bits after index as tag
+/*
+  uint8_t t1_pred = T1_valid[T1_idx] && (T1_tag[T1_idx] == ((pc >> (T1_entries - 1)) & tag_mask)) ? ( (T1_pred[T1_idx]>=0) ? TAKEN : NOTTAKEN ) : INVALID; 
+  uint8_t t2_pred = T2_valid[T2_idx] && (T2_tag[T2_idx] == ((pc >> (T2_entries - 1)) & tag_mask)) ? ( (T2_pred[T2_idx]>=0) ? TAKEN : NOTTAKEN ) : INVALID; 
+  uint8_t t3_pred = T3_valid[T3_idx] && (T3_tag[T3_idx] == ((pc >> (T3_entries - 1)) & tag_mask)) ? ( (T3_pred[T3_idx]>=0) ? TAKEN : NOTTAKEN ) : INVALID; 
+  uint8_t t4_pred = T4_valid[T4_idx] && (T4_tag[T4_idx] == ((pc >> (T4_entries - 1)) & tag_mask)) ? ( (T4_pred[T4_idx]>=0) ? TAKEN : NOTTAKEN ) : INVALID; 
+*/
+ 
+  //predictions from T1-T4 using lower 2 bits as tag
+  uint8_t t1_pred = (T1_tag[T1_idx] == (pc & tag_mask)) ? ( (T1_pred[T1_idx]>=0) ? TAKEN : NOTTAKEN ) : INVALID; 
+  uint8_t t2_pred = (T2_tag[T2_idx] == (pc & tag_mask)) ? ( (T2_pred[T2_idx]>=0) ? TAKEN : NOTTAKEN ) : INVALID; 
+  uint8_t t3_pred = (T3_tag[T3_idx] == (pc & tag_mask)) ? ( (T3_pred[T3_idx]>=0) ? TAKEN : NOTTAKEN ) : INVALID; 
+  uint8_t t4_pred = (T4_tag[T4_idx] == (pc & tag_mask)) ? ( (T4_pred[T4_idx]>=0) ? TAKEN : NOTTAKEN ) : INVALID;  
 
   provider = 0xBC; 
 
@@ -414,7 +439,7 @@ uint8_t tage_predict(uint32_t pc)
   if(pred == TAKEN)
     dbg_predict_taken++;
 
-  if(pred == NOTTAKEN)
+  else if(pred == NOTTAKEN)
     dbg_predict_nottaken++;
 
   return pred; 
@@ -489,19 +514,15 @@ void periodic_usefulness_reset()
 		//iterate over all usefulness values and apply the mask
 		int i;
 
-  		int T1_entries = 1 << L1;  
   		for(i=0; i<T1_entries; i++){
   		  T1_u[i] = T1_u[i] & usefulness_mask;
   		}  
-  		int T2_entries = 1 << L2;  
   		for(i=0; i<T2_entries; i++){
   		  T2_u[i] = T2_u[i] & usefulness_mask;
   		}  
-  		int T3_entries = 1 << L3;  
   		for(i=0; i<T3_entries; i++){
   		  T3_u[i] = T3_u[i] & usefulness_mask;
   		}  
-  		int T4_entries = 1 << L4;  
   		for(i=0; i<T4_entries; i++){
   		  T4_u[i] = T4_u[i] & usefulness_mask;
   		}  
@@ -511,12 +532,11 @@ void periodic_usefulness_reset()
 //function to update the prediction counter of an entry in T1,...,T4
 void update_pred(uint8_t outcome, int8_t & entry )
 {
-	entry = (outcome == TAKEN) ? std::max<int8_t>(entry+1, 3) : std::min<int8_t>(entry-1, -4); 
+	entry = (outcome == TAKEN) ? std::max<int8_t>(entry+1, 1) : std::min<int8_t>(entry-1, -2); 
 }
 
 void train_tage(uint32_t pc, uint8_t outcome)
 {
-  //tage_walk(pc, T0_idx, T1_idx, T2_idx, T3_idx, T4_idx, pred, provider, altpred);
 
   //update usefulness
   int pred_correct = (pred == outcome) ? 1 : 0;
@@ -638,27 +658,15 @@ void train_tage(uint32_t pc, uint8_t outcome)
   	    printf("Warning: Undefined state of provider in TAGE !\n");
   	    break; 
   	}
+
     //if the provider was NOT the component with the longest history (i.e. T4 in our case),
     if (provider != 4)
     {
     	//allocate a new entry with a longer history
-		//FIXME with our ideal case of having as big tables T1,...,T4 as we need, 
-		//our Tj and Tk become entries in T4 and T3
- 
 	    //pick Tj or Tk randomly, with Tj having twice the probability of Tk, j<k
 		int allocation;
 		int random_value; 
-		/*
-		int random_value = std::rand() % 15;
-		if(random_value<8)
-			allocation = 1;
-		else if (8<=random_value & random_value<12)
-			allocation = 2;
-		else if (12<=random_value & random_value<14)
-			allocation = 3;
-		else if (random_value==14)
-			allocation = 4;
-		*/
+
 		switch(provider)
 		{
 			case 3:
@@ -730,10 +738,12 @@ void train_tage(uint32_t pc, uint8_t outcome)
 				
 	
 		//initialize the newly allocated entry
-		
+		//FIXME: Add tag bits here to the entry
 		if(allocation == 1)
 		{
 			T1_valid[T1_idx] = 1;
+			//T1_tag[T1_idx] = (pc >> (T1_entries - 1)) & tag_mask;
+			T1_tag[T1_idx] = pc & tag_mask;
 			T1_u[T1_idx] = SNU;
 			//prediction counter set to weak correct
 			T1_pred[T1_idx] = (outcome == TAKEN) ? 0 : -1;  
@@ -741,6 +751,8 @@ void train_tage(uint32_t pc, uint8_t outcome)
 		else if(allocation == 2)
 		{
 			T2_valid[T2_idx] = 1;
+			//T2_tag[T2_idx] = (pc >> (T2_entries - 1)) & tag_mask;
+			T2_tag[T2_idx] = pc & tag_mask;
 			T2_u[T2_idx] = SNU;
 			//prediction counter set to weak correct
 			T2_pred[T2_idx] = (outcome == TAKEN) ? 0 : -1;  
@@ -748,6 +760,8 @@ void train_tage(uint32_t pc, uint8_t outcome)
 		else if(allocation == 3)
 		{
 			T3_valid[T3_idx] = 1;
+			//T3_tag[T3_idx] = (pc >> (T3_entries - 1)) & tag_mask;
+			T3_tag[T3_idx] = pc & tag_mask;
 			T3_u[T3_idx] = SNU;
 			//prediction counter set to weak correct
 			T3_pred[T3_idx] = (outcome == TAKEN) ? 0 : -1;  
@@ -755,6 +769,8 @@ void train_tage(uint32_t pc, uint8_t outcome)
 		else if(allocation == 4)
 		{
 			T4_valid[T4_idx] = 1;
+			//T4_tag[T4_idx] = (pc >> (T4_entries - 1)) & tag_mask;
+			T4_tag[T4_idx] = pc & tag_mask;
 			T4_u[T4_idx] = SNU;
 			//prediction counter set to weak correct
 			T4_pred[T4_idx] = (outcome == TAKEN) ? 0 : -1;  
