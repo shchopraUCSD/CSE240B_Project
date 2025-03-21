@@ -353,10 +353,10 @@ void tage_walk(uint32_t pc, uint8_t& T0_idx, uint8_t& T1_idx,uint8_t& T2_idx,uin
 */
  
   //predictions from T1-T4 using lower 2 bits as tag
-  uint8_t t1_pred = (T1_tag[T1_idx] == (pc & tag_mask)) ? ( (T1_pred[T1_idx]>=0) ? TAKEN : NOTTAKEN ) : INVALID; 
-  uint8_t t2_pred = (T2_tag[T2_idx] == (pc & tag_mask)) ? ( (T2_pred[T2_idx]>=0) ? TAKEN : NOTTAKEN ) : INVALID; 
-  uint8_t t3_pred = (T3_tag[T3_idx] == (pc & tag_mask)) ? ( (T3_pred[T3_idx]>=0) ? TAKEN : NOTTAKEN ) : INVALID; 
-  uint8_t t4_pred = (T4_tag[T4_idx] == (pc & tag_mask)) ? ( (T4_pred[T4_idx]>=0) ? TAKEN : NOTTAKEN ) : INVALID;  
+  uint8_t t1_pred = (T1_u[T1_idx]==SNU||T1_u[T1_idx]==WNU) ? INVALID : ((T1_tag[T1_idx] == (pc & tag_mask)) ? ( (T1_pred[T1_idx]>=0) ? TAKEN : NOTTAKEN ) : INVALID); 
+  uint8_t t2_pred = (T2_u[T2_idx]==SNU||T2_u[T2_idx]==WNU) ? INVALID : ((T2_tag[T2_idx] == (pc & tag_mask)) ? ( (T2_pred[T2_idx]>=0) ? TAKEN : NOTTAKEN ) : INVALID); 
+  uint8_t t3_pred = (T3_u[T3_idx]==SNU||T3_u[T3_idx]==WNU) ? INVALID : ((T3_tag[T3_idx] == (pc & tag_mask)) ? ( (T3_pred[T3_idx]>=0) ? TAKEN : NOTTAKEN ) : INVALID); 
+  uint8_t t4_pred = (T4_u[T4_idx]==SNU||T4_u[T4_idx]==WNU) ? INVALID : ((T4_tag[T4_idx] == (pc & tag_mask)) ? ( (T4_pred[T4_idx]>=0) ? TAKEN : NOTTAKEN ) : INVALID);  
 
   provider = 0xBC; 
 
