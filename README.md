@@ -3,15 +3,13 @@
 ## Instructions to Run:
 
 - To see performance of the TAGE BPU:
-'''
-cd src
-make | bunzip2 -kc ../traces/long\_trace.bz2 | ./predictor --tage
-'''
+
+_cd src &&
+make && bunzip2 -kc ../traces/long\_trace.bz2 | ./predictor --tage_
 - To see performance of the equivalent gshare BPU:
-'''
-cd src
-make | bunzip2 -kc ../traces/long\_trace.bz2 | ./predictor --gshare
-'''
+
+_cd src &&
+make && bunzip2 -kc ../traces/long\_trace.bz2 | ./predictor --gshare_
 
 ## Approximations
 
