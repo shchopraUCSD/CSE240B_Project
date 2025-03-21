@@ -23,7 +23,7 @@ const char *bpName[4] = {"Static", "Gshare",
 int ghistoryBits = 18; // Number of bits used for Global History
 int bpType;            // Branch Prediction Type
 int verbose;
-int tag_size = 2;
+int tag_size = 5;
 int tag_mask = (1 << tag_size) - 1;
 
 //------------------------------------//
@@ -532,7 +532,7 @@ void periodic_usefulness_reset()
 //function to update the prediction counter of an entry in T1,...,T4
 void update_pred(uint8_t outcome, int8_t & entry )
 {
-	entry = (outcome == TAKEN) ? std::max<int8_t>(entry+1, 1) : std::min<int8_t>(entry-1, -2); 
+	entry = (outcome == TAKEN) ? std::max<int8_t>(entry+1, 3) : std::min<int8_t>(entry-1, -4); 
 }
 
 void train_tage(uint32_t pc, uint8_t outcome)
